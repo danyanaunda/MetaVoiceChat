@@ -22,7 +22,7 @@ namespace MetaVoiceChat.NetProviders.FishNet
         public static IReadOnlyList<FishNetNetProvider> Instances => instances;
         #endregion
 
-        bool INetProvider.IsLocalPlayerDeafened => LocalPlayerInstance.MetaVc.isDeafened;
+        bool INetProvider.IsLocalPlayerDeafened => LocalPlayerInstance != null && LocalPlayerInstance.MetaVc != null && LocalPlayerInstance.MetaVc.isDeafened;
 
         public MetaVc MetaVc { get; private set; }
 
@@ -62,7 +62,7 @@ namespace MetaVoiceChat.NetProviders.FishNet
             instances.Remove(this);
             #endregion
 
-            MetaVc.StopClient();
+            if (MetaVc != null) MetaVc.StopClient();
         }
 
         void INetProvider.RelayFrame(int index, double timestamp, ReadOnlySpan<byte> data)

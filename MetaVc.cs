@@ -53,6 +53,7 @@ namespace MetaVoiceChat
         private INetProvider netProvider;
 
         private bool isLocalPlayer;
+        private bool clientStarted;
 
         private VcEncoder encoder;
         private VcDecoder decoder;
@@ -76,6 +77,7 @@ namespace MetaVoiceChat
 
         public void StartClient(INetProvider netProvider, bool isLocalPlayer, int maxDataBytesPerPacket)
         {
+            if (clientStarted) return;
             this.netProvider = netProvider;
 
             this.isLocalPlayer = isLocalPlayer;
@@ -93,10 +95,12 @@ namespace MetaVoiceChat
             jitter = new(config);
 
             stopwatch.Start();
+            clientStarted = true;
         }
 
         private void SendFrame(int index, float[] samples)
         {
+            if (!clientStarted) return;
             if (samples != null && isSineOverrideEnabled)
             {
                 const float Amplitude = 0.2f;
@@ -162,6 +166,7 @@ namespace MetaVoiceChat
 
         public void ReceiveFrame(int index, double timestamp, float additionalLatency, ReadOnlySpan<byte> data)
         {
+            if (!clientStarted) return;
             float targetLatency = (config.secondsPerFrame * config.outputMinBufferSize) + Time.deltaTime + additionalLatency;
 
             if (!isLocalPlayer)
@@ -208,16 +213,20 @@ namespace MetaVoiceChat
             }
         }
 
+        private void OnDestroy() => StopClient();
+
         public void StopClient()
         {
-            if (isLocalPlayer)
-            {
-                encoder.Dispose();
-
-                audioInput.OnFrameReady -= SendFrame;
-            }
-
-            decoder.Dispose();
+            clientStarted = false;
+            if (isLocalPlayer && audioInput != null) audioInput.OnFrameReady -= SendFrame;
+            isLocalPlayer = false;
+            var activeEncoder = encoder;
+            var activeDecoder = decoder;
+            encoder = null;
+            decoder = null;
+            activeEncoder?.Dispose();
+            activeDecoder?.Dispose();
+            stopwatch.Stop();
         }
 
         private void SetIsSpeaking(bool value)
